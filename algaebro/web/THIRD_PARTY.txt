@@ -1,0 +1,4 @@
+Files bundled in this folder so the dashboard works without a CDN:
+
+maplibre-gl.js, maplibre-gl.css   MapLibre GL JS 5.24.0   BSD 3-Clause licence (see maplibre-gl.LICENSE.txt)   https://maplibre.org
+inter.woff2                       Inter (variable, latin)  SIL Open Font License 1.1                            https://rsms.me/inter/

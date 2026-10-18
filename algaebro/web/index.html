@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Algaebro: Charles River and nearby lakes algal bloom watch</title>
+<link rel="stylesheet" href="/static/maplibre-gl.css">
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<div id="map" role="application" aria-label="Map of the Charles River and nearby lakes showing areas with possible algal bloom activity"></div>
+
+<!-- top left: who we are + what we are looking at -->
+<header class="brand card">
+  <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 3C11 10 7 14.5 7 19.5a9 9 0 0 0 18 0C25 14.5 21 10 16 3z" fill="#25c08a"/><path d="M11 20.5c2.2-2.3 4.6 1.2 7 -0.8 1.4-1.2 2.4-1.2 3.4-.4" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg>
+  <div class="brand-text">
+    <h1>Algaebro</h1>
+    <p>Possible algal bloom activity on the Charles River and nearby lakes</p>
+  </div>
+  <span id="modeChip" class="chip">Live</span>
+</header>
+<div id="dataBanner" class="data-banner" hidden></div>
+
+<!-- top right: controls -->
+<div class="toolbar card" role="toolbar" aria-label="Controls">
+  <label class="switch" title="Show a draggable pin that simulates one phone's location">
+    <input type="checkbox" id="demoToggle"><span class="track"></span><span class="label">Demo mode</span>
+  </label>
+  <select id="userSel" aria-label="Which phone the pin controls" hidden></select>
+  <span class="sep"></span>
+  <button class="tbtn" id="btn3d" aria-pressed="true" title="Tilt the map (3D)">3D</button>
+  <button class="tbtn" id="btnLab" title="Test forecasting ideas in parallel Daytona sandboxes (L)">Forecast Lab</button>
+  <button class="tbtn" id="btnSci" title="Model accuracy, inputs and experiments (S)">Science</button>
+  <button class="tbtn" id="btnPlan" title="Compare cleanup options, costs and budgets (B)">Cleanup planner</button>
+  <button class="tbtn" id="btnPhotos" title="Review photos people texted (V)">Photos <span class="badge" id="photoBadge" hidden>0</span></button>
+  <button class="tbtn" id="btnPanel" aria-pressed="true" title="Show or hide the details panel (P)">Details</button>
+  <span class="sep"></span>
+  <span class="status-dot" id="photonDot" aria-hidden="true"></span><span id="photonTxt" class="small">Photon off</span>
+</div>
+
+<!-- right: selected area -->
+<aside id="panel" class="panel card" aria-label="Selected area">
+  <div class="panel-head">
+    <h2>Area details</h2>
+    <div class="head-actions">
+      <button class="icon-btn" id="panelMin" aria-label="Collapse details" title="Collapse"><svg viewBox="0 0 20 20"><path d="M5 8l5 5 5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <button class="icon-btn" id="panelHide" aria-label="Hide details" title="Hide (P)"><svg viewBox="0 0 20 20"><path d="M6 6l8 8M14 6l-8 8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+    </div>
+  </div>
+  <div class="panel-body">
+    <div id="detail"><p class="muted">Select an area on the map.</p></div>
+    <details class="reliab" id="reliabBox">
+      <summary>How reliable is this?</summary>
+      <div id="reliab"></div>
+    </details>
+    <p class="foot" id="foot"></p>
+  </div>
+</aside>
+
+<!-- left: legend -->
+<section id="legend" class="legend card" aria-label="Heat legend">
+  <div class="legend-top">
+    <strong>Chlorophyll index</strong>
+    <label class="switch tiny"><input type="checkbox" id="heatToggle" checked><span class="track"></span><span class="label">Heat</span></label>
+  </div>
+  <div class="ramp" id="ramp"><span class="tick" id="flagTick"></span></div>
+  <div class="ramp-labels"><span>lower</span><span id="flagLabel">flag starts</span><span>higher</span></div>
+  <p class="small muted" id="heatNote"></p>
+  <label class="switch tiny" style="margin-top:8px" title="Verified community photos from the last 7 days. A red ring means Grok thinks it looks like a bloom.">
+    <input type="checkbox" id="storyToggle" checked><span class="track"></span><span class="label">Community photos</span></label>
+</section>
+
+<!-- bottom left: alerts -->
+<section id="alerts" class="alerts card" aria-label="Alerts sent">
+  <div class="alerts-head">
+    <button class="alerts-title" id="alertsToggle" aria-expanded="true"><svg class="chev" viewBox="0 0 20 20"><path d="M5 8l5 5 5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Alerts sent</span><span class="count" id="alertCount">0</span></button>
+    <button class="linkbtn" id="alertsClear" title="Hide the alerts shown now">Clear</button>
+  </div>
+  <div class="alerts-body" id="alertsBody">
+    <ul class="feed" id="feed"></ul>
+    <button class="linkbtn" id="alertsMore" hidden></button>
+  </div>
+</section>
+
+<!-- bottom centre: timeline -->
+<nav id="timeline" class="timeline card" aria-label="Timeline">
+  <div class="tl-row">
+    <div class="tl-controls">
+      <button class="icon-btn round" id="stepBack" aria-label="Back one week" title="Back one week"><svg viewBox="0 0 20 20"><path d="M12 5l-5 5 5 5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <button class="icon-btn round primary" id="playBtn" aria-label="Play" title="Play through the season up to now"><svg id="playIcon" viewBox="0 0 20 20"><path d="M7 5l9 5-9 5z" fill="currentColor"/></svg></button>
+      <button class="icon-btn round" id="stepFwd" aria-label="Forward one week" title="Forward one week"><svg viewBox="0 0 20 20"><path d="M8 5l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    </div>
+    <div class="tl-when"><strong id="dateLbl" class="date-lbl">-</strong><span id="targetLbl" class="small muted"></span></div>
+    <select id="yearSel" aria-label="Season"></select>
+    <button class="btn small-btn" id="nowBtn" title="Jump to the latest satellite reading">Now</button>
+    <button class="btn small-btn" id="jump" title="Go to the strongest event in the data">Biggest event</button>
+  </div>
+  <div class="tl-slider">
+    <span class="small muted" id="tlStart">May</span>
+    <div class="tl-track"><input type="range" id="slider" min="0" max="183" value="0" aria-label="Date: past, now, or days ahead"><span class="now-tick" id="nowTick" hidden>Now</span></div>
+    <span class="small muted" id="tlEnd">Oct</span>
+  </div>
+  <div class="tl-row tl-ahead" id="viewRow">
+    <div class="seg" role="group" aria-label="What the forecast uses">
+      <button id="vRule" aria-pressed="true" title="Days ahead: carry the latest satellite reading forward (the simple rule the alerts use)">Latest reading</button>
+      <button id="vMl" aria-pressed="false" title="Days ahead: the ML model trained for that many days ahead">ML model</button>
+    </div>
+  </div>
+  <p class="small muted tl-skill" id="skillNote"></p>
+</nav>
+
+<!-- chat -->
+<button class="fab" id="chatFab" aria-label="Open the Grok assistant (C)" title="Ask Grok (C)">
+  <svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H11l-4.2 3.6a.6.6 0 0 1-1-.5V16h-.3A2.5 2.5 0 0 1 4 13.5z" fill="currentColor"/></svg>
+</button>
+<section id="chat" class="chat card" hidden aria-label="Ask Grok">
+  <div class="chat-head">
+    <div><strong>Ask about the river</strong><div class="small muted" id="chatStatus">Checking...</div></div>
+    <div class="head-actions">
+      <button class="icon-btn" id="speakToggle" aria-pressed="true" aria-label="Read answers aloud" title="Read answers aloud"><svg viewBox="0 0 20 20"><path d="M3 8v4h3l4 3.5v-11L6 8z" fill="currentColor"/><path d="M13 7.5a3.5 3.5 0 0 1 0 5M15 5.5a6.2 6.2 0 0 1 0 9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+      <button class="icon-btn" id="chatClose" aria-label="Close" title="Close (Esc)"><svg viewBox="0 0 20 20"><path d="M6 6l8 8M14 6l-8 8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+    </div>
+  </div>
+  <div class="chat-log" id="chatLog" aria-live="polite"></div>
+  <div class="chat-suggest" id="chatSuggest"></div>
+  <form class="chat-form" id="chatForm" autocomplete="off">
+    <button type="button" class="icon-btn round mic" id="micBtn" aria-label="Speak your question" title="Speak your question"><svg viewBox="0 0 20 20"><rect x="7.5" y="2.5" width="5" height="10" rx="2.5" fill="currentColor"/><path d="M4.5 9.5a5.5 5.5 0 0 0 11 0M10 15v2.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>
+    <input id="chatInput" type="text" maxlength="600" placeholder="Which areas are flagged?" aria-label="Your question">
+    <button class="btn primary" type="submit" id="chatSend">Send</button>
+  </form>
+</section>
+
+<!-- forecast lab -->
+<div id="labModal" class="modal" hidden role="dialog" aria-modal="true" aria-label="Forecast Lab">
+  <div class="modal-card card">
+    <div class="modal-head">
+      <div><h2>Forecast Lab</h2><p class="muted small">Can any idea predict flagged areas better than simply carrying the latest reading forward? Every idea runs in its own Daytona sandbox, all at once, on seasons it never saw. The latest season is held back: only the best idea per time window is checked on it, so a lucky win does not count.</p></div>
+      <button class="icon-btn" id="labClose" aria-label="Close" title="Close (Esc)"><svg viewBox="0 0 20 20"><path d="M6 6l8 8M14 6l-8 8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+    </div>
+    <div id="labBanner" class="data-banner inline" hidden></div>
+    <div class="lab-actions">
+      <button class="btn primary" id="labQuick" title="7 ideas at 7 days ahead, plus input importance: 8 sandboxes, then 2 to confirm">Run quick lab (8 sandboxes)</button>
+      <button class="btn" id="labFull" title="7 ideas at 3, 7 and 14 days ahead, plus input importance: 22 sandboxes, then 6 to confirm">Run full lab (22 sandboxes)</button>
+      <button class="btn" id="labTrain" title="For each day ahead (1-7): 5 model ideas x 3 settings plus the simple rule, one Daytona sandbox each (112), then each day's best is confirmed on the unseen season (14) and refitted. The map's ML view uses the winners.">Train 1-7 day forecasts (126 sandboxes)</button>
+      <span class="chip" id="labRunner">-</span>
+      <span class="small muted" id="labStamp"></span>
+    </div>
+    <div class="progress" id="labProgress" hidden><div class="bar" id="labBar"></div></div>
+    <pre class="log" id="labLog" hidden></pre>
+    <div id="labResult"></div>
+
+    <h3>Ask the data</h3>
+    <p class="muted small">Grok writes a short analysis and a Daytona sandbox runs it. You see the code and the result. AI-written code is never run on this computer.</p>
+    <form id="askForm" class="ask-form">
+      <input id="askInput" type="text" maxlength="400" placeholder="e.g. In which month are flagged readings most common?" aria-label="Question about the data">
+      <button class="btn primary" id="askBtn" type="submit">Run in Daytona</button>
+    </form>
+    <p class="small muted" id="askHint"></p>
+    <div id="askResult"></div>
+  </div>
+</div>
+
+<!-- science mode -->
+<div id="sciModal" class="modal" hidden role="dialog" aria-modal="true" aria-label="Science mode">
+  <div class="modal-card card wide">
+    <div class="modal-head">
+      <div><h2>Science mode</h2><p class="muted small">How the forecast is made and how well it has done, measured only on seasons each method never trained on.</p></div>
+      <button class="icon-btn" id="sciClose" aria-label="Close" title="Close (Esc)"><svg viewBox="0 0 20 20"><path d="M6 6l8 8M14 6l-8 8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+    </div>
+    <div id="sciBody"><p class="muted small" style="margin-top:14px">Loading...</p></div>
+  </div>
+</div>
+
+<!-- cleanup planner -->
+<div id="planModal" class="modal" hidden role="dialog" aria-modal="true" aria-label="Cleanup planner">
+  <div class="modal-card card wide">
+    <div class="modal-head">
+      <div><h2>Cleanup planner</h2><p class="muted small">What could be done about blooms on each water body, roughly what it costs over 10 years, and who lives nearby. Costs are published ranges, not quotes.</p></div>
+      <button class="icon-btn" id="planClose" aria-label="Close" title="Close (Esc)"><svg viewBox="0 0 20 20"><path d="M6 6l8 8M14 6l-8 8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+    </div>
+    <form class="plan-controls" id="planForm" autocomplete="off">
+      <label>Water body <select id="planSite"></select></label>
+      <label>Budget (USD, 10 years) <input id="planBudget" type="number" min="0" step="10000" placeholder="e.g. 500000"></label>
+      <label title="Only used by the stormwater option">Phosphorus to cut (lb/year) <input id="planLbs" type="number" min="0" step="5" value="25"></label>
+      <button class="btn primary" type="submit">Compare options</button>
+    </form>
+    <div id="planBody"></div>
+    <h3>Ask about the options</h3>
+    <form id="planAskForm" class="ask-form">
+      <input id="planAskInput" type="text" maxlength="400" placeholder="e.g. Would aeration cost more than alum here?" aria-label="Question about the cleanup options">
+      <button class="btn primary" type="submit">Ask</button>
+    </form>
+    <div id="planAskResult"></div>
+  </div>
+</div>
+<!-- photo review -->
+<div id="photoModal" class="modal" hidden role="dialog" aria-modal="true" aria-label="Photo review">
+  <div class="modal-card card wide">
+    <div class="modal-head">
+      <div><h2>Photos</h2><p class="muted small">Grok checks each texted photo: confident trolls are rejected, clear photos of the water are verified, the rest wait here for you. Rejected photos are kept (hidden) so you can undo; Delete removes a photo for good. "Verified" means a plausible photo of the water, not proof of where or when it was taken.</p></div>
+      <button class="icon-btn" id="photoClose" aria-label="Close" title="Close (Esc)"><svg viewBox="0 0 20 20"><path d="M6 6l8 8M14 6l-8 8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+    </div>
+    <div class="lab-actions"><div class="seg tabs" id="photoTabs" role="group" aria-label="Photo status"></div>
+      <button class="btn" id="photoScreen">Screen unscreened photos with Grok</button></div>
+    <div id="photoList" class="plist"></div>
+  </div>
+</div>
+
+<!-- one community photo, story style -->
+<div id="story" class="story-view" hidden role="dialog" aria-modal="true" aria-label="Community photo">
+  <div class="story-card">
+    <div class="story-bar" id="storyBar"></div>
+    <div class="story-head"><div><strong id="storyTitle"></strong><div class="small" id="storyWhen"></div></div>
+      <button class="icon-btn" id="storyClose" aria-label="Close" title="Close (Esc)"><svg viewBox="0 0 20 20"><path d="M6 6l8 8M14 6l-8 8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button></div>
+    <img id="storyImg" alt="Community photo of the water (verified as a plausible photo, not a safety test)">
+    <div class="story-foot"><span id="storyLabel" class="fit"></span><p class="small" id="storyDesc"></p>
+      <p class="small muted">Community photo, checked by Grok as a plausible photo of the water. Not a toxin test or a safety check.</p>
+      <div class="story-nav"><button class="btn small-btn" id="storyPrev">Previous</button><button class="btn small-btn" id="storyNext">Next</button></div></div>
+  </div>
+</div>
+<div id="vizTip" class="viz-tip" role="tooltip" hidden></div>
+
+<div id="toast" role="status"></div>
+<div id="lightbox" hidden><img alt="Photo from a person near the river (unverified)"></div>
+
+<script src="/static/maplibre-gl.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>
